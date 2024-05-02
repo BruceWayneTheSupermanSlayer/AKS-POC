@@ -2,4 +2,4 @@
 
 # AKS-POC
 
-![AKS](AKS.svg)
+![AKS](AKS.png)
