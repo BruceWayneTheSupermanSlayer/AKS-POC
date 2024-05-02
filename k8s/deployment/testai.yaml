@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-ai-backend
+  labels:
+    app: testai
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: testai
+  template:
+    metadata:
+      labels:
+        app: testai
+    spec:
+      containers:
+        - name: test-ai
+          image: testai:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: "MONGO_HOST"
+              value: "mongodb"
+            - name: "MONGO_PORT"
+              value: "27017"
+            - name: "MONGO_DB"
+              value: "test-ai"

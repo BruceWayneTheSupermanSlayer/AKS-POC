@@ -1,0 +1,122 @@
+services:
+  rabbitmq:
+    container_name: rabbitmq
+    hostname: rabbitmq
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=rohitkumar
+      - RABBITMQ_DEFAULT_PASS=password
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq
+    networks:
+      - backend_service
+  testai:
+    build: ./test-ai-backend
+    container_name: testai
+    restart: always
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - .env
+    networks:
+      - backend_service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      testaidb:
+        condition: service_healthy
+  ascend:
+    build: ./ascend-backend
+    develop:
+      watch:
+        - action: sync
+          path: ./ascend-backend
+          target: /app
+          ignore:
+            - "node_modules"
+    container_name: ascend
+    restart: always
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - .env
+    networks:
+      - backend_service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    shm_size: 128mb
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: rohitkumar
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: aksstore
+      POSTGRES_HOST_AUTH_METHOD: trust
+    hostname: postgres
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - backend_service
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "rohitkumar" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  testaidb:
+    image: mongo
+    restart: always
+    networks:
+      - backend_service
+    hostname: testaidb
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand({serverStatus:1}).ok' | mongosh localhost:27017/admin --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo-client:
+    image: mongo-express
+    container_name: mongo-client
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://testaidb:27017/ai-backend
+      ME_CONFIG_BASICAUTH_USERNAME: ""
+    networks:
+      - backend_service
+    depends_on:
+      testaidb:
+        condition: service_healthy
+networks:
+  backend_service:
+    driver: bridge
